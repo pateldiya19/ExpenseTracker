@@ -1,0 +1,312 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Expense Tracker Design System - Deep Navy Theme */
+
+@layer base {
+  :root {
+    /* Deep Navy Theme Colors (HSL) */
+    --navy-deep: 225 75% 8%;           /* #071124 - Main background */
+    --navy-surface: 210 50% 12%;       /* #0c2030 - Card fallback */
+    --navy-glass: 0 0% 100% / 0.04;    /* Glass overlay */
+    
+    /* Accent Colors */
+    --accent-purple: 256 65% 55%;      /* #5D3FD3 */
+    --accent-pink: 333 100% 65%;       /* #FF4D8A */
+    --accent-teal: 174 100% 39%;       /* #00C2A8 */
+    --danger: 0 82% 70%;               /* #FF6B6B */
+    
+    /* Text Colors */
+    --text-primary: 220 60% 92%;       /* #E6EEF8 */
+    --text-muted: 218 25% 68%;         /* #A8B3C6 */
+    --text-inverse: 225 75% 8%;        /* Dark text on light */
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--accent-purple)), hsl(var(--accent-pink)));
+    --gradient-balance: linear-gradient(135deg, hsl(var(--accent-purple)) 0%, hsl(var(--accent-pink)) 100%);
+    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+    
+    /* Landing Page Specific (Bright theme) */
+    --landing-bg: 220 30% 97%;         /* Light background */
+    --landing-surface: 0 0% 100%;      /* White cards */
+    --landing-text: 225 75% 8%;        /* Dark text */
+    --landing-muted: 218 15% 40%;      /* Muted text */
+    --landing-accent: 220 100% 60%;    /* Blue accent */
+    --landing-secondary: 280 60% 65%;  /* Purple secondary */
+    
+    /* Design System Tokens */
+    --background: var(--navy-deep);
+    --foreground: var(--text-primary);
+    --card: var(--navy-surface);
+    --card-foreground: var(--text-primary);
+    --primary: var(--accent-teal);
+    --primary-foreground: var(--navy-deep);
+    --secondary: var(--navy-surface);
+    --secondary-foreground: var(--text-primary);
+    --muted: var(--text-muted);
+    --muted-foreground: var(--text-muted);
+    --accent: var(--accent-purple);
+    --accent-foreground: var(--text-primary);
+    --destructive: var(--danger);
+    --destructive-foreground: var(--text-primary);
+    --border: 218 25% 25%;
+    --input: var(--navy-surface);
+    --ring: var(--accent-teal);
+    --radius: 0.75rem;
+    
+    /* Glass Effect */
+    --glass-bg: rgba(255, 255, 255, 0.04);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+
+    /* Chart defaults (dark mode baseline) */
+    --chart-grid: 220 12% 22%;            /* dark grid lines */
+    --chart-axis: 220 16% 28%;            /* dark axis */
+    --chart-tooltip-bg: 220 30% 8%;       /* nearly-black tooltip bg */
+    --chart-tooltip-text: 0 0% 100%;      /* white tooltip text */
+    --chart-tooltip-border: 0 0% 100% / 0.06; /* subtle light border */
+  }
+
+  .light {
+    /* Light Mode Colors - soft and warm palette */
+    --background: 60 20% 98%;         /* warm cream white */
+    --foreground: 220 15% 15%;        /* dark charcoal for readability */
+    --card: 45 25% 96%;               /* soft pearl surface */
+    --card-foreground: 220 15% 15%;
+    --primary: 210 85% 58%;           /* vibrant ocean blue */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 15 25% 95%;          /* warm beige secondary */
+    --secondary-foreground: 220 15% 15%;
+    --muted: 30 15% 94%;              /* soft neutral */
+    --muted-foreground: 220 8% 42%;   /* medium gray text */
+    --accent: 285 65% 68%;            /* soft purple accent */
+    --accent-foreground: 220 15% 15%;
+    --destructive: 0 65% 58%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 30 20% 85%;             /* warm light border */
+    --input: 45 20% 93%;
+    --ring: 210 85% 58%;
+
+    /* Refined light theme accents */
+    --accent-purple: 285 65% 68%;     /* soft purple */
+    --accent-pink: 330 75% 75%;       /* gentle rose */
+    --accent-teal: 175 85% 55%;       /* fresh teal */
+
+    /* Professional gradients for light mode */
+    --gradient-primary: linear-gradient(135deg, hsl(285 65% 78%), hsl(330 75% 82%));
+    --gradient-balance: linear-gradient(135deg, hsl(210 85% 75%) 0%, hsl(285 65% 78%) 100%);
+
+    /* Enhanced glass effect for professional look */
+    --glass-bg: rgba(255, 255, 255, 0.85);
+    --glass-border: rgba(16, 24, 40, 0.08);
+    --glass-shadow: 0 12px 32px rgba(16, 24, 40, 0.12);
+
+    /* Charts in light mode */
+    --chart-grid: 220 15% 82%;
+    --chart-axis: 220 12% 35%;
+    --chart-tooltip-bg: 45 25% 96%;
+    --chart-tooltip-text: 220 15% 15%;
+    --chart-tooltip-border: 30 20% 85%;
+  }
+
+  /* Light-mode text visibility: make any `text-white` utility render as black-ish */
+  .light .text-white { color: hsl(var(--foreground)) !important; }
+  .light .text-white\/95 { color: hsl(var(--foreground) / 0.95) !important; }
+  .light .text-white\/80 { color: hsl(var(--foreground) / 0.80) !important; }
+  .light .text-white\/60 { color: hsl(var(--foreground) / 0.60) !important; }
+  /* Ensure "text-muted" remains readable in light mode */
+  .light .text-muted { color: hsl(var(--muted-foreground)) !important; }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+  
+  h1 {
+    @apply text-2xl font-semibold;
+  }
+  
+  h2 {
+    @apply text-xl font-medium;
+  }
+  
+  h3 {
+    @apply text-base font-medium;
+  }
+}
+
+@layer components {
+  /* Professional Glass Card Component */
+  .glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(24px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    box-shadow: var(--glass-shadow);
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .glass-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    opacity: 0.8;
+  }
+  
+  /* Enhanced Balance Card with Professional Gradient */
+  .balance-card {
+    background: var(--gradient-balance);
+    @apply glass-card;
+    border: 1px solid rgba(255,255,255,0.15);
+    position: relative;
+  }
+  
+  .balance-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, 
+      rgba(255,255,255,0.1) 0%, 
+      rgba(255,255,255,0.05) 50%, 
+      rgba(255,255,255,0.1) 100%);
+    border-radius: inherit;
+    pointer-events: none;
+  }
+  
+  /* Professional Card Variants */
+  .pro-card {
+    @apply glass-card;
+    border: 1px solid hsl(var(--border) / 0.8);
+    background: linear-gradient(135deg, 
+      hsl(var(--card) / 0.95) 0%, 
+      hsl(var(--card) / 0.8) 100%);
+  }
+  
+  .pro-card:hover {
+    border-color: hsl(var(--primary) / 0.3);
+    box-shadow: 
+      var(--glass-shadow),
+      0 0 0 1px hsl(var(--primary) / 0.1),
+      0 0 24px hsl(var(--primary) / 0.15);
+    transform: translateY(-2px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Icon Rail Styling */
+  .icon-rail {
+    @apply glass-card;
+    background: rgba(255, 255, 255, 0.02);
+  }
+  
+  /* Gradient Text */
+  .gradient-text {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  /* Neon Accent Ring */
+  .neon-ring {
+    position: relative;
+  }
+  .neon-ring::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    padding: 2px;
+    background: linear-gradient(140deg, hsl(var(--accent-purple)/.8), hsl(var(--accent-pink)/.7), hsl(var(--accent-teal)/.7));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    opacity: .55;
+    pointer-events: none;
+    transition: opacity .35s ease;
+  }
+  .neon-ring:hover::before { opacity: .9; }
+
+  /* Soft focus glow utility */
+  .focus-glow {
+    box-shadow: 0 0 0 1px hsl(var(--accent-purple)/.4), 0 0 0 4px hsl(var(--accent-pink)/.12), 0 0 24px -4px hsl(var(--accent-teal)/.5);
+  }
+
+  /* Futuristic divider */
+  .fx-divider {
+    position: relative;
+  }
+  .fx-divider::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, hsl(var(--accent-purple)/.4), hsl(var(--accent-pink)/.3), transparent);
+  }
+
+  /* Glass button variant */
+  .btn-glass {
+    background-color: color-mix(in srgb, hsl(var(--card)) 10%, transparent);
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--card-foreground));
+    border-radius: var(--radius);
+    backdrop-filter: blur(6px);
+    transition: color .15s ease, background-color .15s ease, border-color .15s ease;
+  }
+  .btn-glass:hover { background-color: color-mix(in srgb, hsl(var(--card)) 20%, transparent); }
+  
+  /* Animations */
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+  
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+  
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
+/* Final base overrides are defined above; avoid duplicate @apply rules here to keep PostCSS happy. */
