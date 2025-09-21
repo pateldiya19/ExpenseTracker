@@ -1,15 +1,14 @@
-import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
-import { 
-  LayoutDashboard, 
-  Receipt, 
+import { useState, useEffect } from 'react';
+import {
+  LayoutDashboard,
+  Receipt,
   Settings,
   TrendingUp,
   X,
   Bell,
-  Bell as BellIcon,
-  AlarmClock
+  AlarmClock,
+  MessageSquare,
 } from 'lucide-react';
 
 const navigation = [
@@ -22,6 +21,11 @@ const navigation = [
     name: 'Transactions',
     href: '/transactions',
     icon: Receipt,
+  },
+  {
+    name: 'Chat',
+    href: '/chat',
+    icon: MessageSquare,
   },
   {
     name: 'Set Reminder',
@@ -40,7 +44,6 @@ const navigation = [
   },
 ];
 
-import { useEffect } from 'react';
 export default function Sidebar({ open, onToggle, isMobile, mode = 'overlay', navbarHeight = 64, onSidebarWidthChange }) {
   // mode: 'overlay' or 'below-navbar'.
   // navbarHeight: px value for below-navbar mode.
@@ -145,18 +148,12 @@ export default function Sidebar({ open, onToggle, isMobile, mode = 'overlay', na
           <ul className="space-y-1">
             {navigation.map((item) => (
               <li key={item.name}>
-                <NavLink
-                  to={item.href.startsWith('/app') ? item.href : `/app${item.href}`}
+                <a
+                  href={item.href.startsWith('/app') ? item.href : `/app${item.href}`}
                   onClick={() => {
                     if (isMobile) onToggle();
                   }}
-                  className={({ isActive }) =>
-                    `group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative ${
-                      isActive
-                        ? 'bg-primary text-primary-foreground shadow-sm sidebar-active-pill'
-                        : 'text-muted hover:bg-white/5 hover:text-foreground'
-                    }`
-                  }
+                  className="group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative text-muted hover:bg-white/5 hover:text-foreground"
                   tabIndex={0}
                 >
                   <item.icon className={`flex-shrink-0 w-5 h-5 ${expanded ? 'mr-3' : 'mx-auto'}`} />
@@ -172,7 +169,7 @@ export default function Sidebar({ open, onToggle, isMobile, mode = 'overlay', na
                       </motion.span>
                     )}
                   </AnimatePresence>
-                </NavLink>
+                </a>
               </li>
             ))}
           </ul>
@@ -184,3 +181,4 @@ export default function Sidebar({ open, onToggle, isMobile, mode = 'overlay', na
     </>
   );
 }
+
