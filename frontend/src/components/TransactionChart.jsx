@@ -1,126 +1,148 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  PieChart,
-  Pie,
-  Cell
-} from 'recharts';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-
-// Light pastel-like colors
-const COLORS = ['#93c5fd','#fca5a5','#86efac','#fde68a','#c4b5fd','#f9a8d4','#99f6e4','#bef264'];
 
 export default function TransactionChart({ transactions }) {
-  const [period, setPeriod] = useState('7'); // days: '7' | '30' | '60'
-  const [chartView, setChartView] = useState('both'); // 'both' | 'bar' | 'pie'
+  const chartData = useMemo(() => {
+    if (!transactions || transactions.length === 0) return [];
 
-  const filtered = useMemo(() => {
-    if (!Array.isArray(transactions)) return [];
-    const days = parseInt(period, 10);
-    const now = new Date();
-    const since = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (isFinite(days) ? days - 1 : 6));
-    return transactions.filter(tx => {
-      const d = new Date(tx.date);
-      return d >= since && d <= now;
+    const getAmountMinor = (tx) => {
+      if (typeof tx.amountMinor === 'number') return tx.amountMinor;
+      if (typeof tx.amount === 'number') return Math.round(tx.amount * 100);
+      return 0;
+    };
+
+    const days = [];
+    const today = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      days.push({ dateObj: d, key, label: d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' }) });
+    }
+
+    const map = {};
+    days.forEach(d => {
+      map[d.key] = { date: d.label, incomeMinor: 0, expensesMinor: 0 };
     });
-  }, [transactions, period]);
 
-  const expenseByCategory = useMemo(() => {
-    const map = new Map();
-    (filtered || []).forEach(tx => {
-      if (tx.type !== 'expense') return;
-      const name = tx.category || 'Uncategorized';
-      const amount = typeof tx.amountMinor === 'number' ? tx.amountMinor : Math.round((tx.amount || 0) * 100);
-      map.set(name, (map.get(name) || 0) + amount);
+    transactions.forEach(tx => {
+      try {
+        const dt = new Date(tx.date);
+        if (isNaN(dt.getTime())) return;
+        const key = `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`;
+        if (!map[key]) return;
+        const amt = getAmountMinor(tx) || 0;
+        if (tx.type === 'income') map[key].incomeMinor += amt;
+        else if (tx.type === 'expense') map[key].expensesMinor += amt;
+      } catch (e) {}
     });
-    const arr = Array.from(map.entries()).map(([name, minor]) => ({ name, amount: Math.round(minor/100) }));
-    arr.sort((a,b)=> b.amount - a.amount);
-    return arr;
-  }, [filtered]);
 
-  const totalExpense = useMemo(() => expenseByCategory.reduce((s, d) => s + d.amount, 0), [expenseByCategory]);
+    return days.map(d => {
+      const entry = map[d.key] || { incomeMinor: 0, expensesMinor: 0 };
+      const income = entry.incomeMinor / 100;
+      const expenses = entry.expensesMinor / 100;
+      return { date: d.label, income, expenses, net: income - expenses };
+    });
+  }, [transactions]);
 
-  const formatCurrency = (v) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(v);
+  const maxValue = useMemo(() => {
+    if (!chartData.length) return 100;
+    const values = chartData.flatMap(d => [d.income, d.expenses]).filter(v => v > 0);
+    if (!values.length) return 100;
+    const max = Math.max(...values);
+    return Math.ceil(max * 1.2);
+  }, [chartData]);
+
+  const [hoverIndex, setHoverIndex] = useState(null);
+
+  const SVGChart = () => {
+    if (!chartData.length) return <div className="flex items-center justify-center h-full text-muted">No data available</div>;
+
+    const width = 700;
+    const height = 280;
+    const padding = 48;
+    const chartWidth = width - padding * 2;
+    const chartHeight = height - padding * 2;
+    const baselineY = height - padding;
+
+    const groupWidth = chartWidth / chartData.length;
+    const barInnerWidth = Math.max(14, Math.min(32, groupWidth * 0.35));
+    const getGroupX = (index) => padding + index * groupWidth + groupWidth / 2;
+    const valueToHeight = (value) => (value / maxValue) * chartHeight;
+
+    return (
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full select-none">
+        <defs>
+          <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="hsl(var(--accent-teal,26,188,156))" stopOpacity="0.85" />
+            <stop offset="100%" stopColor="hsl(var(--accent-teal,26,188,156))" stopOpacity="0.2" />
+          </linearGradient>
+          <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="hsl(var(--accent-pink,236,72,153))" stopOpacity="0.85" />
+            <stop offset="100%" stopColor="hsl(var(--accent-pink,236,72,153))" stopOpacity="0.2" />
+          </linearGradient>
+        </defs>
+
+        {/* Bars */}
+        {chartData.map((d, i) => {
+          const groupX = getGroupX(i);
+          const incomeH = valueToHeight(d.income);
+          const expenseH = valueToHeight(d.expenses);
+          const incomeX = groupX - barInnerWidth - 4;
+          const expenseX = groupX + 4;
+
+          return (
+            <g key={i}>
+              {/* Income */}
+              <rect x={incomeX} y={baselineY - incomeH} width={barInnerWidth} height={Math.max(10, incomeH)} rx={6} fill="url(#incomeGradient)"
+                onMouseEnter={() => setHoverIndex(i)} onMouseLeave={() => setHoverIndex(null)} />
+              <text x={incomeX + barInnerWidth / 2} y={baselineY - incomeH - 6} textAnchor="middle" fill="hsl(var(--accent-teal,26,188,156)/0.85)" fontSize="11">₹{d.income.toFixed(2)}</text>
+
+              {/* Expense */}
+              <rect x={expenseX} y={baselineY - expenseH} width={barInnerWidth} height={Math.max(10, expenseH)} rx={6} fill="url(#expenseGradient)"
+                onMouseEnter={() => setHoverIndex(i)} onMouseLeave={() => setHoverIndex(null)} />
+              <text x={expenseX + barInnerWidth / 2} y={baselineY - expenseH - 6} textAnchor="middle" fill="hsl(var(--accent-pink,236,72,153)/0.85)" fontSize="11">₹{d.expenses.toFixed(2)}</text>
+            </g>
+          );
+        })}
+
+        {/* X axis */}
+        {chartData.map((d, i) => (
+          <text key={i} x={getGroupX(i)} y={height - 12} textAnchor="middle" fill="hsl(var(--muted-foreground,100,116,139))" fontSize="12">{d.date}</text>
+        ))}
+
+        {/* Y axis */}
+        {[0, Math.round(maxValue/2), Math.round(maxValue)].map((v,i) => {
+          const y = baselineY - (v/maxValue)*chartHeight;
+          return (
+            <g key={i}>
+              <line x1={padding} x2={width-padding} y1={y} y2={y} stroke="hsl(var(--chart-grid,203,213,225)/0.18)" />
+              <text x={12} y={y+4} fill="hsl(var(--muted-foreground,100,116,139))" fontSize="12">₹{v}</text>
+            </g>
+          );
+        })}
+      </svg>
+    );
+  };
 
   return (
-    <Card>
-      <CardHeader className="space-y-0 pb-4">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <CardTitle>Spending Analytics</CardTitle>
-          <div className="flex items-center gap-2">
-            <Select value={chartView} onValueChange={setChartView}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Chart View" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="both">Both</SelectItem>
-                <SelectItem value="bar">Bar Only</SelectItem>
-                <SelectItem value="pie">Pie Only</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={period} onValueChange={setPeriod}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Period" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7">Last 7 Days</SelectItem>
-                <SelectItem value="30">Last 30 Days</SelectItem>
-                <SelectItem value="60">Last 60 Days</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+    <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{duration:0.5}} className="pro-card p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-lg font-heading font-semibold text-foreground">Weekly Trend</h3>
+          <p className="text-sm text-muted">Income vs Expenses (Last 7 days · INR)</p>
         </div>
-      </CardHeader>
-      <CardContent>
-        {expenseByCategory.length === 0 ? (
-          <div className="flex items-center justify-center h-64 text-muted">No expense data available</div>
-        ) : (
-          <div className={`grid gap-6 ${chartView === 'both' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
-            {(chartView === 'both' || chartView === 'bar') && (
-              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="pro-card p-4">
-                <h3 className="font-heading font-semibold mb-3">Spending by Category (Bar)</h3>
-                <div className="w-full h-[320px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={expenseByCategory} margin={{ top: 10, right: 20, bottom: 10, left: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted/20" />
-                      <XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} angle={-15} textAnchor="end" height={60} />
-                      <YAxis tickFormatter={formatCurrency} tick={{ fontSize: 12 }} />
-                      <Tooltip formatter={(v)=>formatCurrency(v)} />
-                      <Bar dataKey="amount" fill="#fbcfe8" stroke="#ec4899" strokeOpacity={0.35} radius={[4,4,0,0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </motion.div>
-            )}
-            {(chartView === 'both' || chartView === 'pie') && (
-              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.05 }} className="pro-card p-4">
-                <h3 className="font-heading font-semibold mb-3">Spending Distribution (Pie)</h3>
-                <div className="w-full h-[320px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={expenseByCategory} dataKey="amount" nameKey="name" cx="50%" cy="50%" outerRadius={110} label={({name, percent}) => `${name} ${(percent*100).toFixed(0)}%`}>
-                        {expenseByCategory.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(v)=>formatCurrency(v)} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="mt-3 text-sm text-muted">Total: {formatCurrency(totalExpense)}</div>
-                </div>
-              </motion.div>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      </div>
+      <div className="h-64"><SVGChart /></div>
+      <div className="flex items-center justify-center space-x-6 mt-4">
+        <div className="flex items-center space-x-2">
+          <div className="w-3 h-3 rounded-full" style={{backgroundColor:'hsl(var(--accent-teal,26,188,156))'}}></div>
+          <span className="text-sm text-muted">Income (₹)</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <div className="w-3 h-3 rounded-full" style={{backgroundColor:'hsl(var(--accent-pink,236,72,153))'}}></div>
+          <span className="text-sm text-muted">Expenses (₹)</span>
+        </div>
+      </div>
+    </motion.div>
   );
 }
