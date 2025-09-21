@@ -1,40 +1,39 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Plus, Receipt, TrendingUp, TrendingDown, User, ArrowRight } from 'lucide-react';
+import { Receipt, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { 
-  getTransactions, 
-  getCategories, 
-  calculateBalance, 
+import {
+  getTransactions,
+  getCategories,
+  calculateBalance,
   getRecentTransactions,
-  formatCurrency 
+  formatCurrency
 } from '../utils/transactionUtils';
 import BalanceCard from '../components/BalanceCard';
 import TransactionChart from '../components/TransactionChart';
-import Chatbot from './Chatbot';
 
 export default function Dashboard() {
   const { currentUser } = useAuth();
 
-  // --- STATE MANAGEMENT for ASYNC DATA ---
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // --- DATA FETCHING with useEffect ---
   useEffect(() => {
     const fetchData = async () => {
+      if (!currentUser?.id) return;
+
       try {
         setLoading(true);
-        // Fetch both transactions and categories at the same time
         const [transData, catData] = await Promise.all([
-          getTransactions(),
+          getTransactions(currentUser.id),
           getCategories()
         ]);
-        setTransactions(transData);
-        setCategories(catData);
+
+        setTransactions(Array.isArray(transData) ? transData : []);
+        setCategories(Array.isArray(catData) ? catData : []);
       } catch (err) {
         console.error("Failed to fetch dashboard data:", err);
         setError("Could not load dashboard data. Please try again later.");
@@ -43,201 +42,151 @@ export default function Dashboard() {
       }
     };
 
-    if (currentUser) {
-      fetchData();
-    }
+    fetchData();
   }, [currentUser]);
 
-  // --- DERIVED DATA with useMemo ---
-const { income, expenses, balance, recentTransactions, categoryMap } = useMemo(() => {
-  // If loading or there's an error, return a default structure
-  if (loading || error || !transactions || !categories) {
-    return {
-      income: 0,
-      expenses: 0,
-      balance: 0,
-      recentTransactions: [],
-      categoryMap: {},
-    };
+  // Safe memoized calculations
+  const { income, expenses, balance, recentTransactions, categoryMap } = useMemo(() => {
+    const safeTransactions = transactions || [];
+    const safeCategories = categories || [];
+
+    const income = safeTransactions
+      .filter(tx => tx.type === 'income')
+      .reduce((sum, tx) => sum + (tx.amountMinor || 0), 0);
+
+    const expenses = safeTransactions
+      .filter(tx => tx.type === 'expense')
+      .reduce((sum, tx) => sum + (tx.amountMinor || 0), 0);
+
+    const balance = calculateBalance(safeTransactions);
+    const recentTransactions = getRecentTransactions(safeTransactions, 5);
+
+    const categoryMap = safeCategories.reduce((map, cat) => {
+      map[cat.id] = cat;
+      return map;
+    }, {});
+
+    return { income, expenses, balance, recentTransactions, categoryMap };
+  }, [transactions, categories]);
+
+  if (!currentUser) {
+    return <div className="text-center p-10 text-gray-700 dark:text-gray-300">Loading user info...</div>;
   }
 
-  // This part remains the same
-  const income = transactions
-    .filter(tx => tx.type === 'income')
-    .reduce((sum, tx) => sum + tx.amountMinor, 0);
-  
-  const expenses = transactions
-    .filter(tx => tx.type === 'expense')
-    .reduce((sum, tx) => sum + tx.amountMinor, 0);
-  
-  const balance = calculateBalance(transactions);
-  const recentTransactions = getRecentTransactions(transactions, 5);
-  
-  const categoryMap = categories.reduce((map, cat) => {
-    map[cat.id] = cat;
-    return map;
-  }, {});
-
-  return { income, expenses, balance, recentTransactions, categoryMap };
-}, [transactions, categories, loading, error]);
-
-  // --- LOADING AND ERROR STATES ---
   if (loading) {
-    return <div className="text-center p-10">Loading Dashboard...</div>;
+    return <div className="text-center p-10 text-gray-700 dark:text-gray-300">Loading Dashboard...</div>;
   }
 
   if (error) {
-    return <div className="text-center p-10 text-red-500">{error}</div>;
+    return <div className="text-center p-10 text-red-600 dark:text-red-400">{error}</div>;
   }
 
-  // --- QUICK STATS (depends on derived data) ---
-  const quickStats = [
-    {
-      label: 'Total Transactions',
-      value: transactions.length,
-      icon: Receipt,
-      color: 'text-blue-400',
-    },
-    {
-      label: 'Total Income',
-      value: formatCurrency(income),
-      icon: TrendingUp,
-      color: 'text-green-400',
-    },
-    {
-      label: 'Total Expenses',
-      value: formatCurrency(expenses),
-      icon: TrendingDown,
-      color: 'text-red-400',
-    },
-  ];
-
-  // --- RENDER ---
   return (
     <div className="space-y-6">
+      {/* Top: Balance */}
+      <BalanceCard
+        balance={balance}
+        income={income}
+        expenses={expenses}
+        className="bg-white dark:bg-gray-800 shadow-md"
+        textClass="text-gray-800 dark:text-gray-100"
+      />
+
+      {/* Middle: Charts + Recent Transactions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Charts */}
         <div className="lg:col-span-2 space-y-6">
-          <BalanceCard balance={balance} income={income} expenses={expenses} />
-          <TransactionChart transactions={transactions} />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="pro-card p-4">
-              <h3 className="font-heading font-semibold mb-2">Expenses</h3>
-              <p className="text-sm text-muted mb-3">Total: {formatCurrency(transactions.filter(t => t.type === 'expense').reduce((s,t)=>s+t.amountMinor,0))}</p>
-              <div className="space-y-2 max-h-64 overflow-auto">
-                {transactions.filter(t => t.type === 'expense').slice(0,10).map((t)=> (
-                  <div key={t._id} className="flex justify-between text-sm">
-                    <span>{t.note || t.category}</span>
-                    <span className="text-red-400">- {formatCurrency(t.amountMinor)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="pro-card p-4">
-              <h3 className="font-heading font-semibold mb-2">Income</h3>
-              <p className="text-sm text-muted mb-3">Total: {formatCurrency(transactions.filter(t => t.type === 'income').reduce((s,t)=>s+t.amountMinor,0))}</p>
-              <div className="space-y-2 max-h-64 overflow-auto">
-                {transactions.filter(t => t.type === 'income').slice(0,10).map((t)=> (
-                  <div key={t._id} className="flex justify-between text-sm">
-                    <span>{t.note || t.category}</span>
-                    <span className="text-green-400">+ {formatCurrency(t.amountMinor)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            className="grid grid-cols-1 sm:grid-cols-3 gap-4"
-          >
-            {quickStats.map((stat) => (
-              <motion.div
-                key={stat.label}
-                whileHover={{ y: -4 }}
-                transition={{ duration: 0.2 }}
-                className="pro-card p-5 group cursor-pointer"
-              >
-                <div className="flex items-center space-x-4 w-full">
-                  <div className="p-3 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 group-hover:from-primary/30 group-hover:to-accent/30 transition-all duration-300">
-                    <stat.icon className={`w-6 h-6 ${stat.color}`} />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground opacity-80">{stat.label}</p>
-                    <p className="font-bold text-foreground mt-1 text-lg">{stat.value}</p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
+          <TransactionChart
+            transactions={transactions}
+            className="bg-white dark:bg-gray-800 shadow-md rounded-lg"
+          />
         </div>
+
+        {/* Recent Transactions */}
         <div className="flex flex-col h-full">
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
-            className="pro-card p-6 mb-6"
+            className="p-6 bg-white dark:bg-gray-800 shadow-md rounded-lg"
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-heading font-semibold text-foreground">Recent Transactions</h3>
-              <Link to="/transactions" className="text-primary hover:text-primary/80 text-sm font-medium flex items-center space-x-1 transition-colors">
+              <h3 className="font-heading font-semibold text-gray-800 dark:text-gray-100">
+                Recent Transactions
+              </h3>
+              <Link
+                to="/app/transactions"
+                className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 text-sm font-medium flex items-center space-x-1 transition-colors"
+              >
                 <span>View all</span>
                 <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
+
             <div className="space-y-3">
-              {recentTransactions && recentTransactions.length > 0 ? (
-                recentTransactions.map((transaction, index) => (
+              {recentTransactions.length > 0 ? (
+                recentTransactions.map((tx, index) => (
                   <motion.div
-                    key={transaction._id || transaction.id} // Use _id from MongoDB
+                    key={tx.id || tx._id || index}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.3, delay: index * 0.1 }}
-                    className="flex items-center justify-between py-2 border-b border-border/30 last:border-b-0"
+                    className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
                   >
                     <div className="flex items-center space-x-3">
-                      <div className={`p-2 rounded-full ${transaction.type === 'income' ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
-                        {transaction.type === 'income' ? (
-                          <TrendingUp className="w-4 h-4 text-green-400" />
+                      <div
+                        className={`p-2 rounded-full ${
+                          tx.type === 'income'
+                            ? 'bg-green-100 dark:bg-green-900'
+                            : 'bg-red-100 dark:bg-red-900'
+                        }`}
+                      >
+                        {tx.type === 'income' ? (
+                          <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
                         ) : (
-                          <TrendingDown className="w-4 h-4 text-red-400" />
+                          <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
                         )}
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-foreground">{transaction.note || 'No description'}</p>
-                        <p className="text-xs text-muted">{categoryMap[transaction.category]?.name || transaction.category || 'Unknown'}</p>
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                          {tx.note || 'No description'}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {categoryMap[tx.categoryId]?.name || 'Unknown'}
+                        </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={`text-sm font-semibold ${transaction.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
-                        {transaction.type === 'income' ? '+' : '-'}
-                        {formatCurrency(transaction.amountMinor)}
+                      <p
+                        className={`text-sm font-semibold ${
+                          tx.type === 'income'
+                            ? 'text-green-600 dark:text-green-400'
+                            : 'text-red-600 dark:text-red-400'
+                        }`}
+                      >
+                        {tx.type === 'income' ? '+' : '-'}
+                        {formatCurrency(tx.amountMinor)}
                       </p>
-                      <p className="text-xs text-muted">{new Date(transaction.date).toLocaleDateString()}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {new Date(tx.date).toLocaleDateString()}
+                      </p>
                     </div>
                   </motion.div>
                 ))
               ) : (
                 <div className="text-center py-8">
-                  <Receipt className="w-8 h-8 text-muted mx-auto mb-2" />
-                  <p className="text-muted text-sm">No transactions yet</p>
-                  <Link to="/transactions/new" className="text-primary hover:text-primary/80 text-sm font-medium mt-2 inline-block">
+                  <Receipt className="w-8 h-8 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">No transactions yet</p>
+                  <Link
+                    to="/app/transactions/new"
+                    className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 text-sm font-medium mt-2 inline-block"
+                  >
                     Add your first transaction
                   </Link>
                 </div>
               )}
             </div>
           </motion.div>
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            className="pro-card p-4"
-          >
-            <h3 className="font-heading font-semibold mb-3">Ask your data</h3>
-            <Chatbot embedded={true} height="360px" />
-          </motion.div>
-          {/* Profile Card and other components can remain as they are */}
         </div>
       </div>
     </div>
